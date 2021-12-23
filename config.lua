@@ -1,7 +1,7 @@
 Config = Config or {}
 
 Config.MinZOffset = 30
-Config.RamsNeeded = 2  --Cops Ram Doors
+Config.RamsNeeded = 2
 Config.UnownedBlips = true
 
 Config.Houses = {}
