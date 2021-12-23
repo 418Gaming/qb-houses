@@ -83,6 +83,11 @@ QBCore.Commands.Add("addgarage", "Add House Garage (Real Estate Only)", {}, fals
     end
 end)
 
+QBCore.Commands.Add("enter", "Enter House", {}, false, function(source)
+    local src = source
+    TriggerClientEvent('qb-houses:client:EnterHouse', src)
+end)
+
 QBCore.Commands.Add("ring", "Ring The Doorbell", {}, false, function(source)
     local src = source
     TriggerClientEvent('qb-houses:client:RequestRing', src)
@@ -195,8 +200,8 @@ RegisterNetEvent('qb-houses:server:viewHouse', function(house)
     local pData = QBCore.Functions.GetPlayer(src)
 
     local houseprice = Config.Houses[house].price
-    local brokerfee = (houseprice / 100 * 5)
-    local bankfee = (houseprice / 100 * 10)
+    local brokerfee = (houseprice / 100 * 10)
+    local bankfee = (houseprice / 100 * 5)
     local taxes = (houseprice / 100 * 6)
 
     TriggerClientEvent('qb-houses:client:viewHouse', src, houseprice, brokerfee, bankfee, taxes,

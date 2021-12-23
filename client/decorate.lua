@@ -218,7 +218,7 @@ end
 RegisterNetEvent('qb-houses:client:decorate', function()
 	Wait(500)
 	if IsInside then
-		if HasHouseKey then
+		if HasKey then
 			if not DecoMode then
 				EnableEditMode()
 				openDecorateUI()
