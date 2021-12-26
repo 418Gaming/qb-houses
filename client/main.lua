@@ -1,7 +1,7 @@
 QBCore = exports['qb-core']:GetCoreObject()
 IsInside = false
 ClosestHouse = nil
-HasHouseKey = false
+HasKey = false
 contractOpen = false
 local isOwned = false
 local cam = nil
@@ -22,7 +22,7 @@ local CurrentHouse = nil
 local RamsDone = 0
 local keyholderMenu = {}
 local keyholderOptions = {}
-local fetchingHouseKeys = false
+local p = nil
 
 -- Functions
 
@@ -110,7 +110,7 @@ local function setViewCam(coords, h, yaw)
 end
 
 local function InstructionButton(ControlButton)
-    ScaleformMovieMethodAddParamPlayerNameString(ControlButton)
+    N_0xe83a3e3557a56640(ControlButton)
 end
 
 local function InstructionButtonMessage(text)
@@ -151,7 +151,6 @@ local function FrontDoorCam(coords)
     cam = CreateCamWithParams("DEFAULT_SCRIPTED_CAMERA", coords.x, coords.y, coords.z + 0.5, 0.0, 0.00, coords.h - 180, 80.00, false, 0)
     SetCamActive(cam, true)
     RenderScriptCams(true, true, 500, true, true)
-    TriggerEvent('qb-weathersync:client:EnableSync')
     FrontCam = true
     FreezeEntityPosition(PlayerPedId(), true)
     Wait(500)
@@ -245,12 +244,12 @@ local function SetClosestHouse()
         ClosestHouse = current
         if ClosestHouse ~= nil and tonumber(dist) < 30 then
             QBCore.Functions.TriggerCallback('qb-houses:server:ProximityKO', function(key, owned)
-                HasHouseKey = key
+                HasKey = key
                 isOwned = owned
             end, ClosestHouse)
         end
     end
-    TriggerEvent('qb-garages:client:setHouseGarage', ClosestHouse, HasHouseKey)
+    TriggerEvent('qb-garages:client:setHouseGarage', ClosestHouse, HasKey)
 end
 
 local function setHouseLocations()
@@ -352,21 +351,17 @@ local function RemoveHouseKey(citizenData)
 end
 
 local function getKeyHolders()
-    if fetchingHouseKeys then return end
-    fetchingHouseKeys = true
-
-    local p = promise.new()
+    if p then return end
+    p = promise.new()
     QBCore.Functions.TriggerCallback('qb-houses:server:getHouseKeyHolders', function(holders)
         p:resolve(holders)
     end,ClosestHouse)
-
     return Citizen.Await(p)
 end
 
 function HouseKeysMenu()
     local holders = getKeyHolders()
-    fetchingHouseKeys = false
-
+    p = nil
     if holders == nil or next(holders) == nil then
         QBCore.Functions.Notify("No key holders found..", "error", 3500)
         CloseMenuFull()
@@ -423,7 +418,7 @@ end
 --        [5] = function(coords) return exports['qb-interior']:CreateLesterShell(coords) end,
 --        [6] = function(coords) return exports['qb-interior']:CreateRanchShell(coords) end
 --    }
---
+
 --    if not shells[houseTier] then
 --        QBCore.Functions.Notify('Invalid House Tier', 'error')
 --        return nil
@@ -564,7 +559,6 @@ end
 
 local function enterOwnedHouse(house)
     CurrentHouse = house
-    ClosestHouse = house
     TriggerServerEvent("InteractSound_SV:PlayOnSource", "houses_door_open", 0.25)
     openHouseAnim()
     IsInside = true
@@ -578,8 +572,7 @@ local function enterOwnedHouse(house)
     entering = true
     Wait(500)
     TriggerServerEvent('qb-houses:server:SetInsideMeta', house, true)
-    --TriggerEvent('qb-weathersync:client:DisableSync')
-    TriggerEvent('qb-weathersync:client:EnableSync')
+    TriggerEvent('qb-weathersync:client:DisableSync')
     TriggerEvent('qb-weed:client:getHousePlants', house)
     entering = false
     setHouseLocations()
@@ -610,7 +603,6 @@ end
 
 local function enterNonOwnedHouse(house)
     CurrentHouse = house
-    ClosestHouse = house
     TriggerServerEvent("InteractSound_SV:PlayOnSource", "houses_door_open", 0.25)
     openHouseAnim()
     IsInside = true
@@ -623,8 +615,7 @@ local function enterNonOwnedHouse(house)
     entering = true
     Wait(500)
     TriggerServerEvent('qb-houses:server:SetInsideMeta', house, true)
-    --TriggerEvent('qb-weathersync:client:DisableSync')
-    TriggerEvent('qb-weathersync:client:EnableSync')
+    TriggerEvent('qb-weathersync:client:DisableSync')
     TriggerEvent('qb-weed:client:getHousePlants', house)
     entering = false
     InOwnedHouse = true
@@ -655,30 +646,6 @@ local function LeaveNonOwnedHouse(house)
     end
 end
 
-local function HasHouseKey()
-    if IsInside and HasHouseKey then
-        return true
-    end
-end
-
-exports('HasHouseKey', HasHouseKey)
-
-local function isNearHouses()
-    local ped = PlayerPedId()
-    local pos = GetEntityCoords(ped)
-
-    if ClosestHouse ~= nil then
-        local dist = #(pos - vector3(Config.Houses[ClosestHouse].coords.enter.x, Config.Houses[ClosestHouse].coords.enter.y, Config.Houses[ClosestHouse].coords.enter.z))
-        if dist <= 1.5 then
-            if HasHouseKey then
-                return true
-            end
-        end
-    end
-end
-
-exports('isNearHouses', isNearHouses)
-
 -- Events
 
 RegisterNetEvent('qb-houses:server:sethousedecorations', function(house, decorations)
@@ -689,7 +656,7 @@ RegisterNetEvent('qb-houses:server:sethousedecorations', function(house, decorat
 end)
 
 RegisterNetEvent('qb-houses:client:sellHouse', function()
-    if ClosestHouse and HasHouseKey then
+    if ClosestHouse and HasKey then
         TriggerServerEvent('qb-houses:server:viewHouse', ClosestHouse)
     end
 end)
@@ -701,7 +668,7 @@ RegisterNetEvent('qb-houses:client:EnterHouse', function()
     if ClosestHouse ~= nil then
         local dist = #(pos - vector3(Config.Houses[ClosestHouse].coords.enter.x, Config.Houses[ClosestHouse].coords.enter.y, Config.Houses[ClosestHouse].coords.enter.z))
         if dist <= 1.5 then
-            if HasHouseKey then
+            if HasKey then
                 enterOwnedHouse(ClosestHouse)
             else
                 if not Config.Houses[ClosestHouse].locked then
@@ -724,14 +691,14 @@ AddEventHandler('QBCore:Client:OnPlayerLoaded', function()
     TriggerEvent('qb-houses:client:setupHouseBlips')
     if Config.UnownedBlips then TriggerEvent('qb-houses:client:setupHouseBlips2') end
     Wait(100)
-    TriggerEvent('qb-garages:client:setHouseGarage', ClosestHouse, HasHouseKey)
+    TriggerEvent('qb-garages:client:setHouseGarage', ClosestHouse, HasKey)
     TriggerServerEvent("qb-houses:server:setHouses")
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
     IsInside = false
     ClosestHouse = nil
-    HasHouseKey = false
+    HasKey = false
     isOwned = false
     for k, v in pairs(OwnedHouseBlips) do
         RemoveBlip(v)
@@ -785,7 +752,7 @@ RegisterNetEvent('qb-houses:client:toggleDoorlock', function()
     local pos = GetEntityCoords(PlayerPedId())
     local dist = #(pos - vector3(Config.Houses[ClosestHouse].coords.enter.x, Config.Houses[ClosestHouse].coords.enter.y, Config.Houses[ClosestHouse].coords.enter.z))
     if dist <= 1.5 then
-        if HasHouseKey then
+        if HasKey then
             if Config.Houses[ClosestHouse].locked then
                 TriggerServerEvent('qb-houses:server:lockHouse', false, ClosestHouse)
                 QBCore.Functions.Notify("House is unlocked!", "success", 2500)
@@ -970,7 +937,7 @@ RegisterNetEvent('qb-houses:client:setLocation', function(data)
     local pos = GetEntityCoords(ped)
     local coords = {x = pos.x, y = pos.y, z = pos.z}
     if IsInside then
-        if HasHouseKey then
+        if HasKey then
             if data.id == 'setstash' then
                 TriggerServerEvent('qb-houses:server:setLocation', coords, ClosestHouse, 1)
             elseif data.id == 'setoutift' then
@@ -1183,7 +1150,7 @@ CreateThread(function()
     TriggerEvent('qb-houses:client:setupHouseBlips')
     if Config.UnownedBlips then TriggerEvent('qb-houses:client:setupHouseBlips2') end
     Wait(100)
-    TriggerEvent('qb-garages:client:setHouseGarage', ClosestHouse, HasHouseKey)
+    TriggerEvent('qb-garages:client:setHouseGarage', ClosestHouse, HasKey)
     TriggerServerEvent("qb-houses:server:setHouses")
 end)
 
@@ -1211,7 +1178,7 @@ CreateThread(function()
             local dist2 = vector3(Config.Houses[ClosestHouse].coords.enter.x, Config.Houses[ClosestHouse].coords.enter.y, Config.Houses[ClosestHouse].coords.enter.z)
             if #(pos.xy - dist2.xy) < 30 then
                 inRange = true
-                if HasHouseKey then
+                if HasKey then
                     -- ENTER HOUSE
 
                     if not IsInside then
@@ -1219,21 +1186,9 @@ CreateThread(function()
                             if #(pos - dist2) <= 1.5 then
                                 houseMenu = {
                                     {
-                                        header = "House Options",
-                                        isMenuHeader = true, -- Set to true to make a nonclickable title
-                                    },
-                                    {
-                                        header = "Enter Your House",
-                                        params = {
-                                            event = "qb-houses:client:EnterHouse",
-
-                                        }
-                                    },
-                                    {
-                                        header = "Give House Key",
-                                        params = {
-                                            event = "qb-houses:client:giveHouseKey",
-                                        }
+                                        header = "/enter to enter house",
+                                        isMenuHeader = true,
+                                        params = {}
                                     }
                                 }
                                 nearLocation = true
@@ -1307,24 +1262,6 @@ CreateThread(function()
                                         }
                                     }
                                 }
-                            end
-                        end
-                    end
-
-                    if IsInside and CurrentHouse ~= nil and not entering then
-                        if POIOffsets ~= nil then
-                            local exitOffset = vector3(Config.Houses[CurrentHouse].coords.enter.x + POIOffsets.exit.x, Config.Houses[CurrentHouse].coords.enter.y + POIOffsets.exit.y, Config.Houses[CurrentHouse].coords.enter.z - Config.MinZOffset + POIOffsets.exit.z + 1.0)
-                            if #(pos - exitOffset) <= 1.5 then
-                                houseMenu = {
-                                    {
-                                        header = "Exit Property",
-                                        params = {
-                                            event = 'qb-houses:client:ExitOwnedHouse',
-                                            args = {}
-                                        }
-                                    }
-                                }
-                                nearLocation = true
                             end
                         end
                     end
